@@ -1,0 +1,91 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalogue
+  namespace: test
+spec:
+  selector:
+    matchLabels:
+      app: catalogue
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: catalogue
+    spec:
+      imagePullSecrets:
+        - name: ecr-image-pull-secret
+      containers:
+      - image: 382942022480.dkr.ecr.us-east-1.amazonaws.com/catalogue:**TAG**
+        name: catalogue
+        ports:
+        - name: catalogueport
+          containerPort: 5001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalogue
+  namespace: test
+spec:
+  ports:
+  - port: 5001
+    protocol: TCP
+    targetPort: catalogueport
+  type: ClusterIP
+  selector:
+    app: catalogue
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalogue-postgres-service
+  namespace: test
+spec:
+  selector:
+    app: catalogue-postgres
+  ports:
+    - name: catalogue-postgres
+      port: 5432
+  clusterIP: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalogue-postgres
+  namespace: test
+spec:
+  selector:
+    matchLabels:
+      app: catalogue-postgres
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: catalogue-postgres
+    spec:
+      containers:
+        - name: catalogue-postgres
+          image: postgres:12.4
+          env:
+            - name: POSTGRES_USER
+              value: admin
+            - name: POSTGRES_PASSWORD
+              value: password
+            - name: POSTGRES_DB
+              value: postgres
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: catalogue-postgres-data
+              mountPath: /var/lib/catalogue/postgresql/data
+      volumes:
+        - name: catalogue-postgres-data
+          emptyDir: {}
